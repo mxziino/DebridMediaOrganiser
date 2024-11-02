@@ -101,6 +101,27 @@ async function addStatusMessage(message) {
     await updateTaskStatus(status);
 }
 
+// Add this near the top of your file with other utility functions
+async function getItemInfo(fullPath, name) {
+    const stats = await fs.lstat(fullPath);
+    let originalPath = null;
+    
+    if (stats.isSymbolicLink()) {
+        try {
+            originalPath = await fs.readlink(fullPath);
+        } catch (error) {
+            console.error(`Error reading symlink for ${fullPath}:`, error);
+        }
+    }
+    
+    return {
+        name,
+        path: fullPath,
+        isSymlink: stats.isSymbolicLink(),
+        originalPath
+    };
+}
+
 // Modify your scan endpoint to use the status tracking
 app.post('/scan', async (req, res) => {
     try {
@@ -173,8 +194,8 @@ app.get('/', async (req, res) => {
         const taskStatus = await getTaskStatus();
         
         // Get media listings from the correct source directory
-        const srcDir = '/mnt/realdebrid';  // Use the realdebrid directory
-        const destDir = settings.dest_dir;  // This should be /mnt/zurg/__all__/
+        const srcDir = '/mnt/realdebrid';
+        const destDir = settings.dest_dir;
 
         // Create category directories if they don't exist
         const categories = {
@@ -188,7 +209,7 @@ app.get('/', async (req, res) => {
             shows: [],
             anime_shows: [],
             movies: [],
-            unsorted: [] // For items in srcDir that haven't been sorted yet
+            unsorted: []
         };
 
         // Get items from source directory (unsorted)
@@ -210,7 +231,6 @@ app.get('/', async (req, res) => {
                 }
             } catch (error) {
                 console.error(`Error reading ${category} directory:`, error);
-                // Continue with empty array if directory doesn't exist
                 mediaLists[category] = [];
             }
         }
