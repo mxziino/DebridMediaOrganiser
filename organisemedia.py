@@ -168,10 +168,30 @@ def get_moviedb_id(imdbid):
     except requests.exceptions.RequestException as e:
         log_message('ERROR', f"Error: {e}")
 
-def is_anime(moviedb_id):
+def is_anime(moviedb_id, series_name):
+    settings = get_settings()
     api_key = get_api_key()
-    if moviedb_id is None:
+    
+    # Check manual override lists from settings
+    anime_list = settings.get('anime_override', {})
+    if series_name in anime_list.get('is_anime', []):
+        return True
+    if series_name in anime_list.get('not_anime', []):
         return False
+
+    if moviedb_id is None:
+        # Ask user if unknown
+        response = input(f"Is '{series_name}' an anime? (y/N): ").lower()
+        # Save response to override list
+        if 'anime_override' not in settings:
+            settings['anime_override'] = {'is_anime': [], 'not_anime': []}
+        if response == 'y':
+            settings['anime_override']['is_anime'].append(series_name)
+        else:
+            settings['anime_override']['not_anime'].append(series_name)
+        with open(SETTINGS_FILE, 'w') as f:
+            json.dump(settings, f, indent=4)
+        return response == 'y'
 
     url = f"https://api.themoviedb.org/3/tv/{moviedb_id}/keywords"
     params = {'api_key': api_key}
@@ -182,7 +202,24 @@ def is_anime(moviedb_id):
             response.raise_for_status()
             data = response.json()
             keywords = data.get('results', [])
-            return any(keyword.get('name') == "anime" for keyword in keywords)
+            anime_keywords = ["anime", "japanese animation", "manga", "based on manga", "based on anime"]
+            is_anime_series = any(keyword.get('name').lower() in anime_keywords for keyword in keywords)
+            
+            if not is_anime_series:
+                # If not determined by keywords, ask user
+                response = input(f"Is '{series_name}' an anime? (y/N): ").lower()
+                # Save response to override list
+                if 'anime_override' not in settings:
+                    settings['anime_override'] = {'is_anime': [], 'not_anime': []}
+                if response == 'y':
+                    settings['anime_override']['is_anime'].append(series_name)
+                else:
+                    settings['anime_override']['not_anime'].append(series_name)
+                with open(SETTINGS_FILE, 'w') as f:
+                    json.dump(settings, f, indent=4)
+                return response == 'y'
+            return is_anime_series
+            
     except requests.exceptions.RequestException as e:
         print(f"Error fetching data: {e}")
         return False
@@ -690,7 +727,8 @@ async def create_symlinks(src_dir, dest_dir, force=False, split=False):
                     season_folder = f"Season {int(season_number):02d}"
                     is_anime = True
                 else:
-                    continue # you can comment this line to enable the processing of movies
+                    # Remove or comment out this continue statement to enable movie processing
+                    # continue 
                     is_movie = True
                     movie_folder_name = os.path.basename(root)
                     movies_cache[file].append((movie_folder_name, src_file, dest_dir, existing_symlinks, links_pkl))
@@ -856,26 +894,26 @@ async def main():
         src_dir = settings['src_dir']
         dest_dir = settings['dest_dir']
         
-    if args.loop:
-        force = True
-        while True:
-            if await create_symlinks(src_dir, dest_dir, force, split=args.split_dirs):
-                log_message('[SUCCESS]', 'Attempting to update Plex Library sections')
-                try:
-                    plex_url, plex_token = await ensure_plex_config()
-                    await scan_plex_library_sections(dest_dir, plex_url, plex_token)
-                except Exception as e:
-                    log_message('ERROR', f"Error updating Plex Library sections: {e}")
-            log_message('[INFO]', "Sleeping for 2 minutes before next run...")
-            time.sleep(120)
-    else:
-        if await create_symlinks(src_dir, dest_dir, force, split=args.split_dirs):
-            log_message('[SUCCESS]', 'Attempting to update Plex Library sections')
-            try:
-                plex_url, plex_token = await ensure_plex_config()
-                await scan_plex_library_sections(dest_dir, plex_url, plex_token)
-            except Exception as e:
-                log_message('ERROR', f"Error updating Plex Library sections: {e}")
+    # if args.loop:
+    #     force = True
+    #     while True:
+    #         if await create_symlinks(src_dir, dest_dir, force, split=args.split_dirs):
+    #             log_message('[SUCCESS]', 'Attempting to update Plex Library sections')
+    #             try:
+    #                 plex_url, plex_token = await ensure_plex_config()
+    #                 await scan_plex_library_sections(dest_dir, plex_url, plex_token)
+    #             except Exception as e:
+    #                 log_message('ERROR', f"Error updating Plex Library sections: {e}")
+    #         log_message('[INFO]', "Sleeping for 2 minutes before next run...")
+    #         time.sleep(120)
+    # else:
+    #     if await create_symlinks(src_dir, dest_dir, force, split=args.split_dirs):
+    #         log_message('[SUCCESS]', 'Attempting to update Plex Library sections')
+    #         try:
+    #             plex_url, plex_token = await ensure_plex_config()
+    #             await scan_plex_library_sections(dest_dir, plex_url, plex_token)
+    #         except Exception as e:
+    #             log_message('ERROR', f"Error updating Plex Library sections: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
