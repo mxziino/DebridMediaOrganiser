@@ -171,15 +171,23 @@ app.get('/', async (req, res) => {
         const settings = await getSettings();
         const taskStatus = await getTaskStatus();
         
-        // Add this: Get the current show data or set to null if not viewing a specific show
-        const show = {
-            path: req.query.path || null
-        };
+        // Get media listings
+        const srcDir = settings.src_dir;
+        const shows = await fs.readdir(srcDir);
+        const mediaList = await Promise.all(shows.map(async (show) => {
+            const fullPath = path.join(srcDir, show);
+            const stats = await fs.lstat(fullPath);
+            return {
+                name: show,
+                path: fullPath,
+                isSymlink: stats.isSymbolicLink()
+            };
+        }));
 
         res.render('index', {
             settings,
             taskStatus,
-            show,  // Pass the show object to the template
+            mediaList
         });
     } catch (error) {
         console.error('Error:', error);

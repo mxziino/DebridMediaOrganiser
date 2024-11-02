@@ -1,5 +1,19 @@
 let statusPollInterval = null;
 
+function updateStatusBox(status) {
+    const statusBox = document.getElementById('statusBox');
+    const statusMessages = document.getElementById('statusMessages');
+    
+    if (status.running) {
+        statusBox.style.display = 'block';
+        statusMessages.innerHTML = status.messages
+            .map(msg => `<div class="py-1">${msg}</div>`)
+            .join('');
+    } else {
+        statusBox.style.display = 'none';
+    }
+}
+
 function startStatusPolling() {
     if (statusPollInterval) return;
     
@@ -7,26 +21,17 @@ function startStatusPolling() {
         try {
             const response = await fetch('/status');
             const status = await response.json();
+            updateStatusBox(status);
             
-            const statusBox = document.getElementById('statusBox');
-            const statusMessages = document.getElementById('statusMessages');
-            
-            if (status.running) {
-                statusBox.style.display = 'block';
-                statusMessages.innerHTML = status.messages
-                    .map(msg => `<div class="py-1">${msg}</div>`)
-                    .join('');
-            } else {
-                statusBox.style.display = 'none';
+            if (!status.running) {
                 clearInterval(statusPollInterval);
                 statusPollInterval = null;
-                // Reload the page when the task completes
                 location.reload();
             }
         } catch (error) {
             console.error('Error polling status:', error);
         }
-    }, 1000); // Poll every second
+    }, 1000);
 }
 
 function startScan(event) {
