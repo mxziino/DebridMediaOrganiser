@@ -298,7 +298,7 @@ async def get_movie_info(title, year=None, force=False):
             return f'{title} {year}'
 
 
-async def get_series_info(series_name, year=None, split=False, force=False):
+async def get_series_info(series_name, year=None, split=False, force=False, root_dir=None):
     global _api_cache
     log_message("[INFO]", f"Current file: {series_name} year: {year}")
     shows_dir = "shows"
@@ -340,7 +340,7 @@ async def get_series_info(series_name, year=None, split=False, force=False):
     
     if not year:
         if len(metas) > 1 and are_similar(metas[0]['name'], metas[1]['name'], 0.9):
-            print(Fore.GREEN + f"Found multiple results for '{series_name}, Year: {year}':")
+            print(Fore.GREEN + f"Found multiple results for '{series_name}' from directory '{root_dir}':")
             for i, meta in enumerate(metas[:3]):
                 print(Fore.CYAN + f"{i + 1}: {meta['name']} ({meta.get('releaseInfo', 'Unknown year')})")
                 
@@ -758,7 +758,7 @@ async def create_symlinks(src_dir, dest_dir, force=False, split=False):
                     if year:
                         show_folder = re.sub(r'\(\d{4}\)$', '', show_folder).strip()
                         show_folder = re.sub(r'\d{4}$', '', show_folder).strip()       
-                show_folder, showid, media_dir = await get_series_info(show_folder, year, split, force)
+                show_folder, showid, media_dir = await get_series_info(show_folder, year, split, force, root)
                 show_folder = show_folder.replace('/', '')
                 
                 resolution = extract_resolution(new_name)
