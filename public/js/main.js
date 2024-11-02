@@ -1,39 +1,52 @@
-function updateStatus() {
-    fetch('/status')
-        .then(response => response.json())
-        .then(data => {
+let statusPollInterval = null;
+
+function startStatusPolling() {
+    if (statusPollInterval) return;
+    
+    statusPollInterval = setInterval(async () => {
+        try {
+            const response = await fetch('/status');
+            const status = await response.json();
+            
             const statusBox = document.getElementById('statusBox');
             const statusMessages = document.getElementById('statusMessages');
             
-            if (data.running) {
+            if (status.running) {
                 statusBox.style.display = 'block';
-                statusMessages.innerHTML = data.messages.map(msg => `<div>${msg}</div>`).join('');
-                setTimeout(updateStatus, 2000);
+                statusMessages.innerHTML = status.messages
+                    .map(msg => `<div class="py-1">${msg}</div>`)
+                    .join('');
             } else {
                 statusBox.style.display = 'none';
-                if (data.messages.length > 0) {
-                    location.reload();
-                }
+                clearInterval(statusPollInterval);
+                statusPollInterval = null;
+                // Reload the page when the task completes
+                location.reload();
             }
-        })
-        .catch(error => console.error('Error:', error));
+        } catch (error) {
+            console.error('Error polling status:', error);
+        }
+    }, 1000); // Poll every second
 }
 
 function startScan(event) {
     event.preventDefault();
-    const form = event.target;
-    const formData = new FormData(form);
+    const splitDirs = document.getElementById('split_dirs').checked;
+    const force = document.getElementById('force').checked;
 
-    fetch('/start_scan', {
+    fetch('/scan', {
         method: 'POST',
-        body: formData
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ split_dirs: splitDirs, force })
     })
     .then(response => response.json())
     .then(data => {
         if (data.error) {
             alert(data.error);
         } else {
-            updateStatus();
+            startStatusPolling();
         }
     })
     .catch(error => console.error('Error:', error));

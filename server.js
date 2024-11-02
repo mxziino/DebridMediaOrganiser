@@ -60,6 +60,111 @@ async function runSymlinkTask(srcDir, destDir, splitDirs = false, force = false)
     }
 }
 
+// Get task status
+async function getTaskStatus() {
+    try {
+        const statusPath = path.join(__dirname, 'status.json');
+        const exists = await fs.access(statusPath).then(() => true).catch(() => false);
+        
+        if (!exists) {
+            return {
+                running: false,
+                messages: []
+            };
+        }
+
+        const status = JSON.parse(await fs.readFile(statusPath, 'utf8'));
+        return status;
+    } catch (error) {
+        console.error('Error reading task status:', error);
+        return {
+            running: false,
+            messages: []
+        };
+    }
+}
+
+// Add these utility functions
+async function updateTaskStatus(status) {
+    const statusPath = path.join(__dirname, 'status.json');
+    await fs.writeFile(statusPath, JSON.stringify(status, null, 2));
+}
+
+async function addStatusMessage(message) {
+    const status = await getTaskStatus();
+    status.messages.push(message);
+    // Keep only the last 50 messages
+    if (status.messages.length > 50) {
+        status.messages = status.messages.slice(-50);
+    }
+    await updateTaskStatus(status);
+}
+
+// Modify your scan endpoint to use the status tracking
+app.post('/scan', async (req, res) => {
+    try {
+        const { split_dirs, force } = req.body;
+        const settings = await getSettings();
+
+        // Check if a scan is already running
+        const status = await getTaskStatus();
+        if (status.running) {
+            return res.status(400).json({ error: 'A scan is already in progress' });
+        }
+
+        // Update status to running
+        await updateTaskStatus({
+            running: true,
+            messages: ['Starting media scan...']
+        });
+
+        // Send immediate response
+        res.json({ message: 'Scan started' });
+
+        // Run the Python script
+        const cmd = `python3 organisemedia.py --source "${settings.src_dir}" --destination "${settings.dest_dir}" ${split_dirs ? '--split-dirs' : ''} ${force ? '--force' : ''}`;
+        
+        const child = exec(cmd);
+
+        child.stdout.on('data', async (data) => {
+            console.log(data);
+            await addStatusMessage(data.trim());
+        });
+
+        child.stderr.on('data', async (data) => {
+            console.error(data);
+            await addStatusMessage(`Error: ${data.trim()}`);
+        });
+
+        child.on('close', async (code) => {
+            const finalMessage = code === 0 ? 'Scan completed successfully' : 'Scan completed with errors';
+            await updateTaskStatus({
+                running: false,
+                messages: [...(await getTaskStatus()).messages, finalMessage]
+            });
+        });
+
+    } catch (error) {
+        console.error('Error:', error);
+        await updateTaskStatus({
+            running: false,
+            messages: [...(await getTaskStatus()).messages, `Error: ${error.message}`]
+        });
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Add a status endpoint for polling
+app.get('/status', async (req, res) => {
+    try {
+        const status = await getTaskStatus();
+        res.json(status);
+    } catch (error) {
+        console.error('Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Routes
 app.get('/', async (req, res) => {
     try {
