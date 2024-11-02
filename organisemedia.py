@@ -894,76 +894,85 @@ async def create_symlinks(src_dir, dest_dir, force=False, split=False):
     
     return symlink_created
 
-def fix_show_imdb(show_path, imdb_id, verbose=False):
-    """Fix the IMDB ID for a specific show."""
+def process_directory_symlinks(directory_path, imdb_id, verbose=False):
+    """Process all symlinks in a directory."""
     try:
+        directory = Path(directory_path)
         if verbose:
-            print(f"Fixing show at {show_path} with IMDB ID {imdb_id}")
+            print(f"Processing directory: {directory}")
+
+        if not directory.exists():
+            raise Exception(f"Directory does not exist: {directory}")
+
+        # Get all symlinks in the directory and its subdirectories
+        symlinks = []
+        for root, dirs, files in os.walk(str(directory)):
+            for item in files + dirs:
+                full_path = Path(root) / item
+                if full_path.is_symlink():
+                    symlinks.append(full_path)
+
+        if verbose:
+            print(f"Found {len(symlinks)} symlinks:")
+            for link in symlinks:
+                print(f"  - {link}")
+
+        # Update the main directory name first
+        current_name = directory.name
+        new_name = re.sub(r'{imdb-tt\d+}', f'{{imdb-{imdb_id}}}', current_name)
+        if new_name == current_name:
+            new_name = f"{current_name} {{imdb-{imdb_id}}}"
+
+        new_directory = directory.parent / new_name
         
-        show_path = Path(show_path)
-        
+        if verbose:
+            print(f"Renaming directory from {directory} to {new_directory}")
+
+        # Rename the main directory
+        os.rename(str(directory), str(new_directory))
+        print(f"Successfully renamed directory to: {new_directory}")
+
+        return True
+
+    except Exception as e:
+        print(f"Error processing directory: {str(e)}", file=sys.stderr)
+        if verbose:
+            import traceback
+            traceback.print_exc()
+        return False
+
+def fix_show_imdb(path, imdb_id, verbose=False):
+    """Fix the IMDB ID for a show path."""
+    try:
+        show_path = Path(path)
+        if verbose:
+            print(f"Processing path: {show_path}")
+            print(f"Path exists: {show_path.exists()}")
+            print(f"Is directory: {show_path.is_dir()}")
+            print(f"Is file: {show_path.is_file()}")
+            print(f"Is symlink: {show_path.is_symlink()}")
+
         if not show_path.exists():
             raise Exception(f"Path does not exist: {show_path}")
 
-        # Get the real path if it's a symlink
-        real_path = show_path.resolve()
-        if verbose:
-            print(f"Real path: {real_path}")
-
-        # Check if the path is in /mnt/zurg/__all__/
-        if '/mnt/zurg/__all__/' in str(show_path):
-            # This is in the destination directory, we need to find and update the source
-            source_path = Path('/mnt/realdebrid')
-            if verbose:
-                print(f"Looking for source file in {source_path}")
-
-            # Get the show name without the IMDB tag
-            show_name = show_path.name
-            base_name = re.sub(r'\s*{imdb-tt\d+}$', '', show_name)
-            
-            # Find matching file in source directory
-            source_files = list(source_path.glob(f"{base_name}*"))
-            if not source_files:
-                raise Exception(f"Could not find source file for {base_name} in {source_path}")
-
-            source_file = source_files[0]
-            if verbose:
-                print(f"Found source file: {source_file}")
-
-            # Create new name with IMDB ID
-            new_name = f"{base_name} {{imdb-{imdb_id}}}"
-            new_source_path = source_file.parent / new_name
+        # If it's a directory, process all symlinks within
+        if show_path.is_dir():
+            return process_directory_symlinks(show_path, imdb_id, verbose)
+        
+        # If it's a file within a show directory, get the show directory
+        if show_path.is_file():
+            # Navigate up until we find the show directory (parent of 'Season XX' or directory with imdb tag)
+            current_dir = show_path.parent
+            while current_dir.name and not re.search(r'{imdb-tt\d+}', current_dir.name):
+                if current_dir.parent == current_dir:  # Reached root
+                    break
+                current_dir = current_dir.parent
 
             if verbose:
-                print(f"Renaming source to: {new_source_path}")
+                print(f"Found show directory: {current_dir}")
 
-            # Rename the source file
-            os.rename(str(source_file), str(new_source_path))
+            return process_directory_symlinks(current_dir, imdb_id, verbose)
 
-            # Remove existing symlink in destination
-            if show_path.exists():
-                if verbose:
-                    print(f"Removing existing symlink: {show_path}")
-                show_path.unlink()
-
-            # Create new symlink
-            new_dest_path = show_path.parent / new_name
-            if verbose:
-                print(f"Creating new symlink: {new_dest_path} -> {new_source_path}")
-            os.symlink(str(new_source_path), str(new_dest_path))
-
-            print(f"Successfully updated show with IMDB ID {imdb_id}")
-        else:
-            # This is a source file, just rename it
-            new_name = re.sub(r'\s*{imdb-tt\d+}$', '', show_path.name) + f" {{imdb-{imdb_id}}}"
-            new_path = show_path.parent / new_name
-            
-            if verbose:
-                print(f"Renaming file to: {new_path}")
-            
-            os.rename(str(show_path), str(new_path))
-            print(f"Successfully updated show with IMDB ID {imdb_id}")
-            
         return True
             
     except Exception as e:
@@ -986,7 +995,9 @@ def main():
 
     # Handle fix operation first and exit
     if args.fix and args.imdb:
-        success = fix_show_imdb(args.fix, args.imdb, args.verbose)
+        # Normalize the path (handle spaces and special characters)
+        fixed_path = os.path.expanduser(args.fix)
+        success = fix_show_imdb(fixed_path, args.imdb, args.verbose)
         sys.exit(0 if success else 1)
     
     # Only continue with normal operation if not fixing
