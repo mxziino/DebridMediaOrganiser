@@ -539,27 +539,38 @@ async def process_movie(file, foldername, force=False):
     path = f"/{foldername}"
     log_message("[INFO]", f"Current Movie file: {os.path.join(path,file)}")
     
-    moviename = re.sub(r'^\[.*?\]\s*', '', foldername)
+    # Skip processing if it's a collection folder name
+    if any(x in foldername.lower() for x in ['collection', 'complete']):
+        moviename = file  # Use the file name instead of folder name
+    else:
+        moviename = re.sub(r'^\[.*?\]\s*', '', foldername)
+        
     moviename = re.sub(r"^\d\. ", "", moviename)
     name, ext = os.path.splitext(file)
     if '.' in moviename:
         moviename = re.sub(r'\.', ' ', moviename)
+        
     pattern = r"^(.*?)\s*[\(\[]?(\d{4})[\)\]]?\s*(?:.*?(\d{3,4}p))?.*$"
     four_digit_numbers = re.findall(r'\b\d{4}\b', moviename)
-    if len(four_digit_numbers) >= 2:
-        #pattern = r"(.+?)\((\d{4})\)\D+(\d{3,4})(p?)"
-        #match = re.search(pattern, moviename)
-        log_message('[DEBUG]', f"Moviename: {moviename}")
-        log_message('[DEBUG]', f"Four Digit numbers: {four_digit_numbers}")
-        title = four_digit_numbers[0]
-        year = four_digit_numbers[1]
+    
+    # Extract title and year from filename if it's a collection
+    if any(x in foldername.lower() for x in ['collection', 'complete']):
+        match = re.search(pattern, name)
+        if match:
+            title = match.group(1).replace('.', ' ').strip()
+            year = match.group(2)
+        else:
+            title = name
+            year = None
     else:
-        # Search the pattern in the string
-        match = re.search(pattern, moviename)
-        #log_message('[DEBUG]', f"Match: {match}")
-        title = match.group(1)
-        year = match.group(2).strip('()')
-        #resolution = match.group(3)
+        if len(four_digit_numbers) >= 2:
+            title = four_digit_numbers[0]
+            year = four_digit_numbers[1]
+        else:
+            match = re.search(pattern, moviename)
+            title = match.group(1)
+            year = match.group(2).strip('()')
+
     proper_name = await get_movie_info(title, year, force)
     if year is None or year == "":
         if proper_name is None:
