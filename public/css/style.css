@@ -1,0 +1,65 @@
+.media-section {
+    margin: 20px 0;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+}
+
+.show-item, .movie-item {
+    margin: 10px 0;
+    padding: 10px;
+    background-color: white;
+    border-radius: 3px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.season-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+}
+
+.seasons-list {
+    margin-left: 20px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+.status-box {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    max-width: 300px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.8);
+    color: #fff;
+    padding: 10px;
+    border-radius: 5px;
+    z-index: 1000;
+}
+
+.btn-group {
+    opacity: 0.3;
+    transition: opacity 0.2s;
+}
+
+.season-item:hover .btn-group,
+.movie-item:hover .btn-group {
+    opacity: 1;
+}
+
+.movie-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.form-check {
+    margin: 0 10px;
+} 
