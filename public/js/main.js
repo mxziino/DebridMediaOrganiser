@@ -122,11 +122,18 @@ function fixSymlink(showPath, imdbId) {
         return;
     }
 
+    if (!imdbId.match(/^tt\d{7,8}$/)) {
+        alert('Please enter a valid IMDB ID (format: tt1234567)');
+        return;
+    }
+
     // Show loading state
     const button = event.target;
     const originalText = button.innerText;
     button.innerText = 'Fixing...';
     button.disabled = true;
+
+    console.log('Sending fix request:', { showPath, imdbId });
 
     fetch('/fix_symlink', {
         method: 'POST',
@@ -135,15 +142,26 @@ function fixSymlink(showPath, imdbId) {
         },
         body: JSON.stringify({ 
             path: showPath, 
-            imdbId: imdbId.trim() // Remove any whitespace
+            imdbId: imdbId.trim()
         })
     })
     .then(response => response.json())
     .then(data => {
+        console.log('Fix response:', data);
+        
         if (data.error) {
             alert('Error: ' + data.error);
+            console.error('Error details:', data);
         } else {
-            alert('Symlink fixed successfully');
+            // Show detailed success message
+            let message = 'Symlink operation completed.';
+            if (data.newLink) {
+                message += `\nNew target: ${data.newLink}`;
+            }
+            if (data.output) {
+                message += `\n\nOutput: ${data.output}`;
+            }
+            alert(message);
             location.reload();
         }
     })

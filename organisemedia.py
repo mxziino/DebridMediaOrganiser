@@ -901,6 +901,9 @@ async def main():
     parser.add_argument("--split-dirs", action="store_true", help="Use separate directories for anime")
     parser.add_argument("--loop", action="store_true", help="When this is used, the script will periodically scan the source directory and automatically choose the first result when querying movies and/or shows")
     parser.add_argument("--reset", action="store_true", help="Reset all symlinks and recreate them")
+    parser.add_argument('--fix', help='Path to the show to fix')
+    parser.add_argument('--imdb', help='IMDB ID to use for fixing')
+    parser.add_argument('--verbose', action='store_true', help='Show verbose output')
     args = parser.parse_args()
     force = False
     
@@ -940,6 +943,36 @@ async def main():
             time.sleep(120)
     else:
         await create_symlinks(src_dir, dest_dir, force, split=args.split_dirs)
+
+    if args.fix and args.imdb:
+        # Handle fixing a specific show
+        try:
+            show_path = args.fix
+            imdb_id = args.imdb
+            if args.verbose:
+                print(f"Fixing show at {show_path} with IMDB ID {imdb_id}")
+            
+            # Get the show name from the path
+            show_name = os.path.basename(show_path)
+            
+            # Create new name with the correct IMDB ID
+            new_name = re.sub(r'{imdb-tt\d+}', f'{{imdb-{imdb_id}}}', show_name)
+            if new_name == show_name:
+                new_name = f"{show_name} {{imdb-{imdb_id}}}"
+            
+            new_path = os.path.join(os.path.dirname(show_path), new_name)
+            
+            if args.verbose:
+                print(f"Renaming to: {new_path}")
+            
+            # Rename the directory
+            os.rename(show_path, new_path)
+            print(f"Successfully updated show with IMDB ID {imdb_id}")
+            return
+            
+        except Exception as e:
+            print(f"Error fixing show: {str(e)}", file=sys.stderr)
+            sys.exit(1)
 
 if __name__ == "__main__":
     asyncio.run(main())

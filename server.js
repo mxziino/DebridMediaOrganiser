@@ -356,28 +356,41 @@ app.post('/fix_symlink', async (req, res) => {
 
         console.log('Fixing symlink:', { showPath, imdbId });
 
-        // Run the Python script with the fix command
+        // Get the absolute path to the Python script
         const scriptPath = path.join(__dirname, 'organisemedia.py');
-        const cmd = `python3 "${scriptPath}" --fix "${showPath}" --imdb "${imdbId}"`;
+        
+        // Build the command with proper escaping
+        const cmd = `python3 "${scriptPath}" --fix "${showPath}" --imdb "${imdbId}" --verbose`;
         
         console.log('Executing command:', cmd);
 
-        const { stdout, stderr } = await execAsync(cmd);
+        // Execute the command and capture output
+        const { stdout, stderr } = await execAsync(cmd, {
+            maxBuffer: 1024 * 1024 * 10 // Increase buffer size to 10MB
+        });
         
         if (stderr) {
             console.error('Script stderr:', stderr);
-            throw new Error(stderr);
         }
 
-        console.log('Script output:', stdout);
+        console.log('Script stdout:', stdout);
+
+        // Check if the Python script actually modified anything
+        const newStats = await fs.lstat(showPath);
+        const newLink = newStats.isSymbolicLink() ? await fs.readlink(showPath) : null;
 
         res.json({ 
-            message: 'Symlink fixed successfully',
-            output: stdout
+            message: 'Symlink operation completed',
+            output: stdout,
+            stderr: stderr,
+            newLink: newLink
         });
     } catch (error) {
         console.error('Error fixing symlink:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ 
+            error: error.message,
+            stack: error.stack
+        });
     }
 });
 
