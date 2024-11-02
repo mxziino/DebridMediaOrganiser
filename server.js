@@ -164,41 +164,33 @@ app.post('/move_symlink', async (req, res) => {
         console.log('Moving symlink:', { sourcePath, destination });
 
         const exists = await fs.access(sourcePath).then(() => true).catch(() => false);
-        console.log('Path exists:', exists);
-
         if (!exists) {
             throw new Error('Source path does not exist');
         }
 
-        try {
-            const stats = await fs.lstat(sourcePath);
-            console.log('File stats:', {
-                isSymlink: stats.isSymbolicLink(),
-                isDirectory: stats.isDirectory(),
-                isFile: stats.isFile()
-            });
-            
-            if (!stats.isSymbolicLink()) {
-                throw new Error(`Path exists but is not a symlink (type: ${stats.isDirectory() ? 'directory' : stats.isFile() ? 'file' : 'unknown'})`);
-            }
-        } catch (error) {
-            throw new Error(`Failed to check symlink status: ${error.message}`);
-        }
-
-        const target = await fs.readlink(sourcePath);
+        const stats = await fs.lstat(sourcePath);
         const showName = path.basename(path.dirname(sourcePath));
         const season = path.basename(sourcePath);
-
         const newBasePath = path.join(destDir, destination, showName);
         const newPath = path.join(newBasePath, season);
 
         await fs.mkdir(newBasePath, { recursive: true });
-        await fs.unlink(sourcePath);
-        await fs.symlink(target, newPath);
 
-        res.json({ message: 'Symlink moved successfully' });
+        if (stats.isSymbolicLink()) {
+            // Handle symlink
+            const target = await fs.readlink(sourcePath);
+            await fs.unlink(sourcePath);
+            await fs.symlink(target, newPath);
+        } else if (stats.isDirectory()) {
+            // Handle directory
+            await fs.rename(sourcePath, newPath);
+        } else {
+            throw new Error('Path is neither a symlink nor a directory');
+        }
+
+        res.json({ message: 'Item moved successfully' });
     } catch (error) {
-        console.error('Error moving symlink:', error);
+        console.error('Error moving item:', error);
         res.status(500).json({ error: error.message });
     }
 });
