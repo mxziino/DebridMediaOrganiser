@@ -601,24 +601,29 @@ async def create_symlinks(src_dir, dest_dir, force=False, split=False):
     symlink_created = []
     movies_cache = defaultdict(list)
     
+    if not os.path.exists(src_dir):
+        log_message('ERROR', f"Source directory {src_dir} does not exist!")
+        return []
+        
+    files_found = False
+    for root, dirs, files in os.walk(src_dir):
+        for file in files:
+            if file.lower().endswith(('.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv', '.mpg', '.mpeg', '.m4v', '.ts', '.webm')):
+                files_found = True
+                break
+        if files_found:
+            break
+    
+    if not files_found:
+        log_message('[WARN]', "No media files found in source directory!")
+        return []
+
     for root, dirs, files in os.walk(src_dir):
         for file in files:
             src_file = os.path.join(root, file)
             is_anime = False
             is_movie = False
             media_dir = "shows"
-            symlink_exists = False
-            
-            if src_file in ignored_files:
-               continue
-            
-            symlink_exists |= any(
-                src_file == existing_src_file
-                for existing_src_file, _ in existing_symlinks  
-            )
-            if symlink_exists:
-                ignored_files.add(src_file)
-                continue
             
             if not src_file.lower().endswith(('.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv', '.mpg', '.mpeg', '.m4v', '.ts', '.webm')):
                 ignored_files.add(src_file)
@@ -760,6 +765,12 @@ async def create_symlinks(src_dir, dest_dir, force=False, split=False):
         await process_movies_in_batches(movies_cache, ignored_files=ignored_files)
 
     save_ignored(ignored_files)
+    
+    if not symlink_created:
+        log_message('[INFO]', "No new symlinks were created")
+    else:
+        log_message('[SUCCESS]', f"Created {len(symlink_created)} symlinks")
+    
     return symlink_created
 
 async def main():
@@ -768,8 +779,25 @@ async def main():
     parser = argparse.ArgumentParser(description="Create symlinks for files from src_dir in dest_dir.")
     parser.add_argument("--split-dirs", action="store_true", help="Use separate directories for anime")
     parser.add_argument("--loop", action="store_true", help="When this is used, the script will periodically scan the source directory and automatically choose the first result when querying movies and/or shows")
+    parser.add_argument("--reset", action="store_true", help="Reset all symlinks and recreate them")
     args = parser.parse_args()
     force = False
+    
+    if args.reset:
+        if os.path.exists(links_pkl):
+            os.remove(links_pkl)
+        if os.path.exists(ignored_file):
+            os.remove(ignored_file)
+        # Also remove existing symlinks in destination directory
+        if 'dest_dir' in settings:
+            for root, dirs, files in os.walk(settings['dest_dir']):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    if os.path.islink(file_path):
+                        os.unlink(file_path)
+            log_message("[INFO]", "Removed existing symlinks from destination directory")
+        log_message("[INFO]", "Reset symlink history - will recreate all symlinks")
+
     apikey = get_api_key()
     
     if args.split_dirs:
