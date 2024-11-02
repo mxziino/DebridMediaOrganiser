@@ -73,16 +73,12 @@ def load_ignored():
     return set()
 
 
-def save_settings(api_key, src_dir, dest_dir):
+def save_settings(api_key, src_dir, dest_dir, ignored_folder):
     settings = {
         'api_key': api_key,
         'src_dir': src_dir,
         'dest_dir': dest_dir,
-        'ignore_patterns': {
-            'ignored_folders': '',
-            'ignored_files': '',
-            'allowed_date_shows': ''
-        }
+        'ignored_folder': ignored_folder
     }
     with open(SETTINGS_FILE, 'w') as file:
         json.dump(settings, file, indent=4)
@@ -112,9 +108,10 @@ def prompt_for_api_key():
         json.dump(settings, file, indent=4)
 
 def prompt_for_settings(api_key):
-    src_dir = input("Enter the source directory path: ")
-    dest_dir = input("Enter the destination directory path: ")
-    save_settings(api_key, src_dir, dest_dir)
+    src_dir = input("default: /mnt/zurg/__all__  Enter the source directory path: ") or "/mnt/zurg/__all__"
+    dest_dir = input("default: /mnt/realdebrid  Enter the destination directory path: ") or "/mnt/realdebrid"
+    ignored_folder = input("default: /mnt/zurg/newstuff  Enter the ignored folder path: ") or "/mnt/zurg/newstuff"
+    save_settings(api_key, src_dir, dest_dir, ignored_folder)
     return src_dir, dest_dir
 
 def get_settings():
@@ -135,23 +132,17 @@ def get_settings():
 
 def should_ignore_path(path, is_folder=False, ignore_patterns=None):
     """
-    Check if a path should be ignored based on regex patterns from settings.
+    Check if a path should be ignored based on whether it exists in ignored_folder
     Returns True if the path should be ignored.
     """
-    if not ignore_patterns or not any(ignore_patterns.values()):
-        return False
-
-    if is_folder:
-        # Check folder against the folder regex if pattern exists
-        if ignore_patterns['ignored_folders'] and re.search(ignore_patterns['ignored_folders'], path, re.IGNORECASE):
-            return True
-    else:
-        # For files, check both conditions if patterns exist
-        if ignore_patterns['ignored_files'] and re.search(ignore_patterns['ignored_files'], path, re.IGNORECASE):
-            # If allowed_date_shows pattern exists, check against it
-            if not (ignore_patterns['allowed_date_shows'] and 
-                   re.search(ignore_patterns['allowed_date_shows'], path, re.IGNORECASE)):
-                return True
+    settings = get_settings()
+    name = os.path.basename(path)
+    newstuff_path = os.path.join(settings.get('ignored_folder', '/mnt/zurg/newstuff'), name)
+    
+    if os.path.exists(newstuff_path):
+        log_message('[DEBUG]', f"Ignoring {name} as it exists in {settings['ignored_folder']}")
+        return True
+        
     return False
 
 def get_moviedb_id(imdbid):
