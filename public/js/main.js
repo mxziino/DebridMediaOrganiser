@@ -117,22 +117,45 @@ function moveShow(showPath, destination) {
 }
 
 function fixSymlink(showPath, imdbId) {
+    if (!imdbId) {
+        alert('Please enter an IMDB ID');
+        return;
+    }
+
+    // Show loading state
+    const button = event.target;
+    const originalText = button.innerText;
+    button.innerText = 'Fixing...';
+    button.disabled = true;
+
     fetch('/fix_symlink', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ path: showPath, imdbId })
+        body: JSON.stringify({ 
+            path: showPath, 
+            imdbId: imdbId.trim() // Remove any whitespace
+        })
     })
     .then(response => response.json())
     .then(data => {
         if (data.error) {
-            alert(data.error);
+            alert('Error: ' + data.error);
         } else {
+            alert('Symlink fixed successfully');
             location.reload();
         }
     })
-    .catch(error => console.error('Error:', error));
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to fix symlink: ' + error.message);
+    })
+    .finally(() => {
+        // Reset button state
+        button.innerText = originalText;
+        button.disabled = false;
+    });
 }
 
 // Initialize status updates if a task is running

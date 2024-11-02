@@ -4,6 +4,7 @@ const fs = require('fs').promises;
 const { exec } = require('child_process');
 const util = require('util');
 const execAsync = util.promisify(exec);
+const fse = require('fs-extra');
 
 const app = express();
 const port = 5000;
@@ -194,12 +195,8 @@ app.get('/', async (req, res) => {
         const srcItems = await fs.readdir(srcDir);
         for (const item of srcItems) {
             const fullPath = path.join(srcDir, item);
-            const stats = await fs.lstat(fullPath);
-            mediaLists.unsorted.push({
-                name: item,
-                path: fullPath,
-                isSymlink: stats.isSymbolicLink()
-            });
+            const itemInfo = await getItemInfo(fullPath, item);
+            mediaLists.unsorted.push(itemInfo);
         }
 
         // Get sorted items from each category
@@ -208,12 +205,8 @@ app.get('/', async (req, res) => {
                 const items = await fs.readdir(dir);
                 for (const item of items) {
                     const fullPath = path.join(dir, item);
-                    const stats = await fs.lstat(fullPath);
-                    mediaLists[category].push({
-                        name: item,
-                        path: fullPath,
-                        isSymlink: stats.isSymbolicLink()
-                    });
+                    const itemInfo = await getItemInfo(fullPath, item);
+                    mediaLists[category].push(itemInfo);
                 }
             } catch (error) {
                 console.error(`Error reading ${category} directory:`, error);
@@ -308,7 +301,7 @@ app.post('/move_show', async (req, res) => {
 
         console.log('Moving show:', { sourcePath, destination });
 
-        const exists = await fs.access(sourcePath).then(() => true).catch(() => false);
+        const exists = await fse.pathExists(sourcePath);
         if (!exists) {
             throw new Error('Source path does not exist');
         }
@@ -316,10 +309,11 @@ app.post('/move_show', async (req, res) => {
         const showName = path.basename(sourcePath);
         const newPath = path.join(destDir, destination, showName);
 
-        await fs.mkdir(path.dirname(newPath), { recursive: true });
+        // Create destination directory if it doesn't exist
+        await fse.ensureDir(path.dirname(newPath));
 
-        // Move the entire show directory
-        await fs.rename(sourcePath, newPath);
+        // Move directory with all contents
+        await fse.move(sourcePath, newPath, { overwrite: true });
 
         res.json({ message: 'Show moved successfully' });
     } catch (error) {
@@ -331,19 +325,31 @@ app.post('/move_show', async (req, res) => {
 app.post('/fix_symlink', async (req, res) => {
     try {
         const { path: showPath, imdbId } = req.body;
-        const settings = await getSettings();
         
         if (!imdbId) {
             throw new Error('IMDB ID is required');
         }
 
+        if (!showPath) {
+            throw new Error('Show path is required');
+        }
+
+        console.log('Fixing symlink:', { showPath, imdbId });
+
         // Run the Python script with the fix command
-        const cmd = `python3 organisemedia.py --fix "${showPath}" --imdb "${imdbId}"`;
+        const scriptPath = path.join(__dirname, 'organisemedia.py');
+        const cmd = `python3 "${scriptPath}" --fix "${showPath}" --imdb "${imdbId}"`;
+        
+        console.log('Executing command:', cmd);
+
         const { stdout, stderr } = await execAsync(cmd);
         
         if (stderr) {
+            console.error('Script stderr:', stderr);
             throw new Error(stderr);
         }
+
+        console.log('Script output:', stdout);
 
         res.json({ 
             message: 'Symlink fixed successfully',
