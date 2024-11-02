@@ -539,6 +539,10 @@ async def process_movie(file, foldername, force=False):
     path = f"/{foldername}"
     log_message("[INFO]", f"Current Movie file: {os.path.join(path,file)}")
     
+    # Skip TV show episodes
+    if re.search(r'[Ee]\d{2,3}|[Ss]\d{2}[Ee]\d{2}', file):
+        return None, None
+    
     # Skip processing if it's a collection folder name
     if any(x in foldername.lower() for x in ['collection', 'complete']):
         moviename = file  # Use the file name instead of folder name
@@ -563,13 +567,13 @@ async def process_movie(file, foldername, force=False):
             title = name
             year = None
     else:
-        if len(four_digit_numbers) >= 2:
-            title = four_digit_numbers[0]
-            year = four_digit_numbers[1]
-        else:
-            match = re.search(pattern, moviename)
+        match = re.search(pattern, moviename)
+        if match:
             title = match.group(1)
             year = match.group(2).strip('()')
+        else:
+            title = moviename
+            year = None
 
     proper_name = await get_movie_info(title, year, force)
     if year is None or year == "":
