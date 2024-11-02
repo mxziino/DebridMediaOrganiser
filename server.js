@@ -8,6 +8,9 @@ const execAsync = util.promisify(exec);
 const app = express();
 const port = 5000;
 
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
 app.use(express.json());
 app.use(express.static('public'));
 app.use(express.urlencoded({ extended: true }));
@@ -131,7 +134,7 @@ app.get('/', async (req, res) => {
 
         res.render('index', { media, taskStatus, settings });
     } catch (error) {
-        res.status(500).send('Error loading media library');
+        res.status(500).send('Error loading media library: ' + error.message);
     }
 });
 
@@ -160,13 +163,26 @@ app.post('/move_symlink', async (req, res) => {
 
         console.log('Moving symlink:', { sourcePath, destination });
 
-        if (!await fs.access(sourcePath).then(() => true).catch(() => false)) {
+        const exists = await fs.access(sourcePath).then(() => true).catch(() => false);
+        console.log('Path exists:', exists);
+
+        if (!exists) {
             throw new Error('Source path does not exist');
         }
 
-        const stats = await fs.lstat(sourcePath);
-        if (!stats.isSymbolicLink()) {
-            throw new Error('Not a symlink');
+        try {
+            const stats = await fs.lstat(sourcePath);
+            console.log('File stats:', {
+                isSymlink: stats.isSymbolicLink(),
+                isDirectory: stats.isDirectory(),
+                isFile: stats.isFile()
+            });
+            
+            if (!stats.isSymbolicLink()) {
+                throw new Error(`Path exists but is not a symlink (type: ${stats.isDirectory() ? 'directory' : stats.isFile() ? 'file' : 'unknown'})`);
+            }
+        } catch (error) {
+            throw new Error(`Failed to check symlink status: ${error.message}`);
         }
 
         const target = await fs.readlink(sourcePath);
