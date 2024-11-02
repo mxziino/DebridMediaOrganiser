@@ -369,8 +369,12 @@ async def get_series_info(series_name, year=None, split=False, force=False, root
         year = selected_meta.get('releaseInfo')
         year = re.match(r'\b\d{4}\b', year).group()
         series_info = f"{selected_meta['name']} ({year}) {{imdb-{series_id}}}"
+        
         if split:
             shows_dir = "anime_shows" if await is_anime(get_moviedb_id(series_id), selected_meta['name']) else "shows"
+        else:
+            shows_dir = "shows"
+        
         _api_cache[cache_key] = (series_info, series_id, shows_dir)
         return series_info, series_id, shows_dir
     
@@ -441,8 +445,12 @@ async def get_series_info(series_name, year=None, split=False, force=False, root
     year = selected_meta.get('releaseInfo')
     year = re.match(r'\b\d{4}\b', year).group()
     series_info = f"{selected_meta['name']} ({year}) {{imdb-{series_id}}}"
+    
     if split:
         shows_dir = "anime_shows" if await is_anime(get_moviedb_id(series_id), selected_meta['name']) else "shows"
+    else:
+        shows_dir = "shows"
+        
     _api_cache[cache_key] = (series_info, series_id, shows_dir)
     return series_info, series_id, shows_dir
 
