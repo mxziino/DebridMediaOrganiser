@@ -902,23 +902,49 @@ def fix_show_imdb(show_path, imdb_id, verbose=False):
         # Validate the path exists
         if not os.path.exists(show_path):
             raise Exception(f"Path does not exist: {show_path}")
+        
+        # Check if it's a symlink
+        if os.path.islink(show_path):
+            if verbose:
+                print("Path is a symlink, reading target...")
+            # Get the target of the symlink
+            target_path = os.readlink(show_path)
+            if verbose:
+                print(f"Current target: {target_path}")
             
-        # Get the show name from the path
-        show_name = os.path.basename(show_path)
-        
-        # Create new name with the correct IMDB ID
-        new_name = re.sub(r'{imdb-tt\d+}', f'{{imdb-{imdb_id}}}', show_name)
-        if new_name == show_name:  # If no IMDB ID was found, append it
-            new_name = f"{show_name} {{imdb-{imdb_id}}}"
-        
-        new_path = os.path.join(os.path.dirname(show_path), new_name)
-        
-        if verbose:
-            print(f"Renaming to: {new_path}")
-        
-        # Rename the directory
-        os.rename(show_path, new_path)
-        print(f"Successfully updated show with IMDB ID {imdb_id}")
+            # Remove the old symlink
+            os.unlink(show_path)
+            
+            # Get the base names
+            show_name = os.path.basename(show_path)
+            new_name = re.sub(r'{imdb-tt\d+}', f'{{imdb-{imdb_id}}}', show_name)
+            if new_name == show_name:  # If no IMDB ID was found, append it
+                new_name = f"{show_name} {{imdb-{imdb_id}}}"
+            
+            # Create the new path
+            new_path = os.path.join(os.path.dirname(show_path), new_name)
+            
+            if verbose:
+                print(f"Creating new symlink: {new_path} -> {target_path}")
+            
+            # Create new symlink with updated name
+            os.symlink(target_path, new_path)
+            print(f"Successfully updated symlink with IMDB ID {imdb_id}")
+        else:
+            # Handle regular directory
+            show_name = os.path.basename(show_path)
+            new_name = re.sub(r'{imdb-tt\d+}', f'{{imdb-{imdb_id}}}', show_name)
+            if new_name == show_name:
+                new_name = f"{show_name} {{imdb-{imdb_id}}}"
+            
+            new_path = os.path.join(os.path.dirname(show_path), new_name)
+            
+            if verbose:
+                print(f"Renaming directory to: {new_path}")
+            
+            os.rename(show_path, new_path)
+            print(f"Successfully updated directory with IMDB ID {imdb_id}")
+            
         return True
             
     except Exception as e:
