@@ -11,6 +11,7 @@ from collections import defaultdict
 import asyncio, aioconsole, aiohttp
 from colorama import init, Fore, Style
 from scan_plex import ensure_plex_config, scan_plex_library_sections
+import sys
 init(autoreset=True)
 
 
