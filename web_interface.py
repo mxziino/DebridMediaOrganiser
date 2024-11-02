@@ -152,6 +152,8 @@ def move_symlink():
     path = request.form.get('path')
     destination = request.form.get('destination')  # 'shows' or 'anime_shows'
     
+    log_to_web(f"Attempting to move symlink from {path} to {destination}", "INFO")
+    
     if os.path.exists(path):
         try:
             settings = get_settings()
@@ -162,22 +164,33 @@ def move_symlink():
             season = os.path.basename(path)
             target = os.readlink(path)
             
+            log_to_web(f"Show: {show_name}, Season: {season}", "DEBUG")
+            log_to_web(f"Current target: {target}", "DEBUG")
+            
             # Create new path
             new_base_path = os.path.join(dest_dir, destination, show_name)
             new_path = os.path.join(new_base_path, season)
+            
+            log_to_web(f"New path will be: {new_path}", "DEBUG")
             
             # Create directory if it doesn't exist
             os.makedirs(new_base_path, exist_ok=True)
             
             # Delete old symlink
+            log_to_web(f"Deleting old symlink at {path}", "DEBUG")
             os.unlink(path)
             
             # Create new symlink
+            log_to_web(f"Creating new symlink: {new_path} -> {target}", "DEBUG")
             os.symlink(target, new_path)
             
             flash(f'Symlink moved to {destination}!', 'success')
         except Exception as e:
+            log_to_web(f'Error moving symlink: {str(e)}', "ERROR")
             flash(f'Error moving symlink: {str(e)}', 'error')
+    else:
+        log_to_web(f"Path does not exist: {path}", "ERROR")
+        flash('Path does not exist!', 'error')
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
