@@ -64,77 +64,21 @@ async function runSymlinkTask(srcDir, destDir, splitDirs = false, force = false)
 app.get('/', async (req, res) => {
     try {
         const settings = await getSettings();
-        const destDir = settings.dest_dir || '/mnt/realdebrid';
+        const taskStatus = await getTaskStatus();
         
-        const media = {
-            shows: [],
-            anime_shows: [],
-            movies: []
+        // Add this: Get the current show data or set to null if not viewing a specific show
+        const show = {
+            path: req.query.path || null
         };
 
-        // Scan shows directory
-        const showsDir = path.join(destDir, 'shows');
-        try {
-            const shows = await fs.readdir(showsDir);
-            for (const show of shows) {
-                const showPath = path.join(showsDir, show);
-                const stats = await fs.stat(showPath);
-                if (stats.isDirectory()) {
-                    const seasons = (await fs.readdir(showPath))
-                        .filter(async s => (await fs.stat(path.join(showPath, s))).isDirectory());
-                    media.shows.push({
-                        name: show,
-                        seasons,
-                        path: showPath
-                    });
-                }
-            }
-        } catch (error) {
-            console.error('Error scanning shows:', error);
-        }
-
-        // Scan anime shows directory
-        const animeDir = path.join(destDir, 'anime_shows');
-        try {
-            const shows = await fs.readdir(animeDir);
-            for (const show of shows) {
-                const showPath = path.join(animeDir, show);
-                const stats = await fs.stat(showPath);
-                if (stats.isDirectory()) {
-                    const seasons = (await fs.readdir(showPath))
-                        .filter(async s => (await fs.stat(path.join(showPath, s))).isDirectory());
-                    media.anime_shows.push({
-                        name: show,
-                        seasons,
-                        path: showPath
-                    });
-                }
-            }
-        } catch (error) {
-            console.error('Error scanning anime:', error);
-        }
-
-        // Scan movies directory
-        const moviesDir = path.join(destDir, 'movies');
-        try {
-            const movies = await fs.readdir(moviesDir);
-            for (const movie of movies) {
-                const moviePath = path.join(moviesDir, movie);
-                const stats = await fs.stat(moviePath);
-                if (stats.isDirectory()) {
-                    media.movies.push({
-                        name: movie,
-                        path: moviePath
-                    });
-                }
-            }
-        } catch (error) {
-            console.error('Error scanning movies:', error);
-        }
-
-        res.render('index', { media, taskStatus, settings });
+        res.render('index', {
+            settings,
+            taskStatus,
+            show,  // Pass the show object to the template
+        });
     } catch (error) {
-        res.status(500).send('Error loading media library: ' + error.message);
+        console.error('Error:', error);
+        res.status(500).send('Error loading media library');
     }
 });
 
