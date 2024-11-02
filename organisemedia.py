@@ -13,6 +13,7 @@ from colorama import init, Fore, Style
 from scan_plex import ensure_plex_config, scan_plex_library_sections
 import sys
 from pathlib import Path
+import glob
 init(autoreset=True)
 
 
@@ -941,37 +942,77 @@ def process_directory_symlinks(directory_path, imdb_id, verbose=False):
             traceback.print_exc()
         return False
 
+def list_directory_contents(path, verbose=False):
+    """List contents of a directory and its parent."""
+    try:
+        if verbose:
+            print("\nDirectory Listing:")
+            print(f"Checking path: {path}")
+            
+            # Check parent directory
+            parent = os.path.dirname(path)
+            print(f"\nContents of parent directory ({parent}):")
+            if os.path.exists(parent):
+                for item in os.listdir(parent):
+                    print(f"  - {item}")
+            else:
+                print("  Parent directory does not exist")
+
+            # Try glob pattern matching
+            print("\nTrying glob pattern matching:")
+            base_pattern = os.path.basename(path).split('{')[0].strip()
+            glob_pattern = f"{os.path.dirname(path)}/{base_pattern}*"
+            print(f"Glob pattern: {glob_pattern}")
+            matches = glob.glob(glob_pattern)
+            for match in matches:
+                print(f"  Match found: {match}")
+                
+    except Exception as e:
+        print(f"Error listing directory: {e}")
+
 def fix_show_imdb(path, imdb_id, verbose=False):
     """Fix the IMDB ID for a show path."""
     try:
-        show_path = Path(path)
         if verbose:
-            print(f"Processing path: {show_path}")
-            print(f"Path exists: {show_path.exists()}")
-            print(f"Is directory: {show_path.is_dir()}")
-            print(f"Is file: {show_path.is_file()}")
-            print(f"Is symlink: {show_path.is_symlink()}")
+            print(f"Processing path: {path}")
+            print(f"Absolute path: {os.path.abspath(path)}")
+            # List directory contents for debugging
+            list_directory_contents(path, verbose)
 
+        # Try to find the actual show directory using glob
+        base_name = os.path.basename(path).split('{')[0].strip()
+        parent_dir = os.path.dirname(path)
+        glob_pattern = f"{parent_dir}/{base_name}*"
+        matching_dirs = glob.glob(glob_pattern)
+
+        if not matching_dirs:
+            raise Exception(f"Could not find any matching directories for pattern: {glob_pattern}")
+
+        actual_path = matching_dirs[0]
+        if verbose:
+            print(f"\nFound matching directory: {actual_path}")
+
+        # Now process the actual directory
+        show_path = Path(actual_path)
         if not show_path.exists():
             raise Exception(f"Path does not exist: {show_path}")
 
-        # If it's a directory, process all symlinks within
-        if show_path.is_dir():
-            return process_directory_symlinks(show_path, imdb_id, verbose)
+        # Create new name with updated IMDB ID
+        current_name = show_path.name
+        new_name = re.sub(r'{imdb-tt\d+}', f'{{imdb-{imdb_id}}}', current_name)
+        if new_name == current_name:
+            new_name = f"{current_name} {{imdb-{imdb_id}}}"
+
+        new_path = show_path.parent / new_name
         
-        # If it's a file within a show directory, get the show directory
-        if show_path.is_file():
-            # Navigate up until we find the show directory (parent of 'Season XX' or directory with imdb tag)
-            current_dir = show_path.parent
-            while current_dir.name and not re.search(r'{imdb-tt\d+}', current_dir.name):
-                if current_dir.parent == current_dir:  # Reached root
-                    break
-                current_dir = current_dir.parent
+        if verbose:
+            print(f"\nRenaming:")
+            print(f"From: {show_path}")
+            print(f"To: {new_path}")
 
-            if verbose:
-                print(f"Found show directory: {current_dir}")
-
-            return process_directory_symlinks(current_dir, imdb_id, verbose)
+        # Rename the directory
+        os.rename(str(show_path), str(new_path))
+        print(f"Successfully renamed directory to: {new_path}")
 
         return True
             
