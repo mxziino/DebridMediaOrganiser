@@ -171,23 +171,61 @@ app.get('/', async (req, res) => {
         const settings = await getSettings();
         const taskStatus = await getTaskStatus();
         
-        // Get media listings
-        const srcDir = settings.src_dir;
-        const shows = await fs.readdir(srcDir);
-        const mediaList = await Promise.all(shows.map(async (show) => {
-            const fullPath = path.join(srcDir, show);
+        // Get media listings from the correct source directory
+        const srcDir = '/mnt/realdebrid';  // Use the realdebrid directory
+        const destDir = settings.dest_dir;  // This should be /mnt/zurg/__all__/
+
+        // Create category directories if they don't exist
+        const categories = {
+            shows: path.join(destDir, 'shows'),
+            anime_shows: path.join(destDir, 'anime_shows'),
+            movies: path.join(destDir, 'movies')
+        };
+
+        // Initialize media lists by category
+        const mediaLists = {
+            shows: [],
+            anime_shows: [],
+            movies: [],
+            unsorted: [] // For items in srcDir that haven't been sorted yet
+        };
+
+        // Get items from source directory (unsorted)
+        const srcItems = await fs.readdir(srcDir);
+        for (const item of srcItems) {
+            const fullPath = path.join(srcDir, item);
             const stats = await fs.lstat(fullPath);
-            return {
-                name: show,
+            mediaLists.unsorted.push({
+                name: item,
                 path: fullPath,
                 isSymlink: stats.isSymbolicLink()
-            };
-        }));
+            });
+        }
+
+        // Get sorted items from each category
+        for (const [category, dir] of Object.entries(categories)) {
+            try {
+                const items = await fs.readdir(dir);
+                for (const item of items) {
+                    const fullPath = path.join(dir, item);
+                    const stats = await fs.lstat(fullPath);
+                    mediaLists[category].push({
+                        name: item,
+                        path: fullPath,
+                        isSymlink: stats.isSymbolicLink()
+                    });
+                }
+            } catch (error) {
+                console.error(`Error reading ${category} directory:`, error);
+                // Continue with empty array if directory doesn't exist
+                mediaLists[category] = [];
+            }
+        }
 
         res.render('index', {
             settings,
             taskStatus,
-            mediaList
+            mediaLists
         });
     } catch (error) {
         console.error('Error:', error);
