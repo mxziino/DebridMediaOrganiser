@@ -72,11 +72,17 @@ def load_ignored():
             return pickle.load(f)
     return set()
 
+
 def save_settings(api_key, src_dir, dest_dir):
     settings = {
         'api_key': api_key,
         'src_dir': src_dir,
         'dest_dir': dest_dir,
+        'ignore_patterns': {
+            'ignored_folders': '',
+            'ignored_files': '',
+            'allowed_date_shows': ''
+        }
     }
     with open(SETTINGS_FILE, 'w') as file:
         json.dump(settings, file, indent=4)
@@ -114,9 +120,39 @@ def prompt_for_settings(api_key):
 def get_settings():
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, 'r') as file:
-            return json.load(file)
+            settings = json.load(file)
+            # Ensure ignore_patterns structure exists
+            if 'ignore_patterns' not in settings:
+                settings['ignore_patterns'] = {
+                    'ignored_folders': '',
+                    'ignored_files': '',
+                    'allowed_date_shows': ''
+                }
+                with open(SETTINGS_FILE, 'w') as f:
+                    json.dump(settings, f, indent=4)
+            return settings
     return {}
 
+def should_ignore_path(path, is_folder=False, ignore_patterns=None):
+    """
+    Check if a path should be ignored based on regex patterns from settings.
+    Returns True if the path should be ignored.
+    """
+    if not ignore_patterns or not any(ignore_patterns.values()):
+        return False
+
+    if is_folder:
+        # Check folder against the folder regex if pattern exists
+        if ignore_patterns['ignored_folders'] and re.search(ignore_patterns['ignored_folders'], path, re.IGNORECASE):
+            return True
+    else:
+        # For files, check both conditions if patterns exist
+        if ignore_patterns['ignored_files'] and re.search(ignore_patterns['ignored_files'], path, re.IGNORECASE):
+            # If allowed_date_shows pattern exists, check against it
+            if not (ignore_patterns['allowed_date_shows'] and 
+                   re.search(ignore_patterns['allowed_date_shows'], path, re.IGNORECASE)):
+                return True
+    return False
 
 def get_moviedb_id(imdbid):
     url = f"https://v3-cinemeta.strem.io/meta/series/{imdbid}.json"
@@ -594,6 +630,9 @@ async def process_movies_in_batches(movies_cache, batch_size=5, ignored_files=No
     movies_cache.clear()
 
 async def create_symlinks(src_dir, dest_dir, force=False, split=False):
+    settings = get_settings()
+    ignore_patterns = settings.get('ignore_patterns', get_default_ignore_patterns())
+    
     os.makedirs(dest_dir, exist_ok=True)
     log_message('[DEBUG]', 'processing...')
     existing_symlinks = load_links(links_pkl)
@@ -607,6 +646,9 @@ async def create_symlinks(src_dir, dest_dir, force=False, split=False):
         
     files_found = False
     for root, dirs, files in os.walk(src_dir):
+        # Filter out ignored folders using patterns from settings
+        dirs[:] = [d for d in dirs if not should_ignore_path(d, is_folder=True, ignore_patterns=ignore_patterns)]
+        
         for file in files:
             if file.lower().endswith(('.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv', '.mpg', '.mpeg', '.m4v', '.ts', '.webm')):
                 files_found = True
@@ -619,7 +661,15 @@ async def create_symlinks(src_dir, dest_dir, force=False, split=False):
         return []
 
     for root, dirs, files in os.walk(src_dir):
+        # Filter out ignored folders using patterns from settings
+        dirs[:] = [d for d in dirs if not should_ignore_path(d, is_folder=True, ignore_patterns=ignore_patterns)]
+        
         for file in files:
+            # Check if file should be ignored using patterns from settings
+            if should_ignore_path(file, ignore_patterns=ignore_patterns):
+                log_message('[DEBUG]', f"Ignoring file based on pattern: {file}")
+                continue
+                
             src_file = os.path.join(root, file)
             is_anime = False
             is_movie = False
