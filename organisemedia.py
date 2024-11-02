@@ -362,7 +362,7 @@ async def get_series_info(series_name, year=None, split=False, force=False, root
         year = re.match(r'\b\d{4}\b', year).group()
         series_info = f"{selected_meta['name']} ({year}) {{imdb-{series_id}}}"
         if split:
-            shows_dir = "anime_shows" if is_anime(get_moviedb_id(series_id)) else "shows"
+            shows_dir = "anime_shows" if is_anime(get_moviedb_id(series_id), selected_meta['name']) else "shows"
         _api_cache[cache_key] = (series_info, series_id, shows_dir)
         return series_info, series_id, shows_dir
     
@@ -397,7 +397,7 @@ async def get_series_info(series_name, year=None, split=False, force=False, root
                             series_info = f"{show_title} ({year_info}) {{imdb-{imdb_id}}}"
                             if split:
                                 log_message('[DEBUG]', f"dir before: {shows_dir}")
-                                shows_dir = "anime_shows" if is_anime(get_moviedb_id(imdb_id)) else "shows"
+                                shows_dir = "anime_shows" if is_anime(get_moviedb_id(imdb_id), show_title) else "shows"
                             _api_cache[cache_key] = (series_info, imdb_id, shows_dir)
                             return series_info, imdb_id, shows_dir
                     else:
@@ -434,7 +434,7 @@ async def get_series_info(series_name, year=None, split=False, force=False, root
     year = re.match(r'\b\d{4}\b', year).group()
     series_info = f"{selected_meta['name']} ({year}) {{imdb-{series_id}}}"
     if split:
-        shows_dir = "anime_shows" if is_anime(get_moviedb_id(series_id)) else "shows"
+        shows_dir = "anime_shows" if is_anime(get_moviedb_id(series_id), selected_meta['name']) else "shows"
     _api_cache[cache_key] = (series_info, series_id, shows_dir)
     return series_info, series_id, shows_dir
 
