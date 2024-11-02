@@ -904,65 +904,65 @@ def fix_show_imdb(show_path, imdb_id, verbose=False):
         
         if not show_path.exists():
             raise Exception(f"Path does not exist: {show_path}")
-        
-        # Check if it's a symlink
-        if show_path.is_symlink():
+
+        # Get the real path if it's a symlink
+        real_path = show_path.resolve()
+        if verbose:
+            print(f"Real path: {real_path}")
+
+        # Check if the path is in /mnt/zurg/__all__/
+        if '/mnt/zurg/__all__/' in str(show_path):
+            # This is in the destination directory, we need to find and update the source
+            source_path = Path('/mnt/realdebrid')
             if verbose:
-                print("Path is a symlink, reading target...")
-            
-            # Get the target of the symlink
-            target_path = os.readlink(str(show_path))
-            if verbose:
-                print(f"Current target: {target_path}")
-            
-            # Create the new name
+                print(f"Looking for source file in {source_path}")
+
+            # Get the show name without the IMDB tag
             show_name = show_path.name
-            new_name = re.sub(r'{imdb-tt\d+}', f'{{imdb-{imdb_id}}}', show_name)
-            if new_name == show_name:  # If no IMDB ID was found, append it
-                new_name = f"{show_name} {{imdb-{imdb_id}}}"
+            base_name = re.sub(r'\s*{imdb-tt\d+}$', '', show_name)
             
-            # Create the new path
-            new_path = show_path.parent / new_name
-            
+            # Find matching file in source directory
+            source_files = list(source_path.glob(f"{base_name}*"))
+            if not source_files:
+                raise Exception(f"Could not find source file for {base_name} in {source_path}")
+
+            source_file = source_files[0]
             if verbose:
-                print(f"Creating new symlink: {new_path} -> {target_path}")
-            
-            # Create temporary symlink with a unique name
-            temp_path = show_path.parent / f"temp_{os.urandom(4).hex()}"
-            
-            try:
-                # Create temp symlink
-                os.symlink(target_path, str(temp_path))
-                
-                # Remove old symlink
+                print(f"Found source file: {source_file}")
+
+            # Create new name with IMDB ID
+            new_name = f"{base_name} {{imdb-{imdb_id}}}"
+            new_source_path = source_file.parent / new_name
+
+            if verbose:
+                print(f"Renaming source to: {new_source_path}")
+
+            # Rename the source file
+            os.rename(str(source_file), str(new_source_path))
+
+            # Remove existing symlink in destination
+            if show_path.exists():
+                if verbose:
+                    print(f"Removing existing symlink: {show_path}")
                 show_path.unlink()
-                
-                # Rename temp to final name
-                os.rename(str(temp_path), str(new_path))
-                
-            except Exception as e:
-                # Cleanup temp symlink if it exists
-                if temp_path.exists():
-                    temp_path.unlink()
-                raise e
-                
-            print(f"Successfully updated symlink with IMDB ID {imdb_id}")
-            
+
+            # Create new symlink
+            new_dest_path = show_path.parent / new_name
+            if verbose:
+                print(f"Creating new symlink: {new_dest_path} -> {new_source_path}")
+            os.symlink(str(new_source_path), str(new_dest_path))
+
+            print(f"Successfully updated show with IMDB ID {imdb_id}")
         else:
-            # Handle regular directory
-            show_name = show_path.name
-            new_name = re.sub(r'{imdb-tt\d+}', f'{{imdb-{imdb_id}}}', show_name)
-            if new_name == show_name:
-                new_name = f"{show_name} {{imdb-{imdb_id}}}"
-            
+            # This is a source file, just rename it
+            new_name = re.sub(r'\s*{imdb-tt\d+}$', '', show_path.name) + f" {{imdb-{imdb_id}}}"
             new_path = show_path.parent / new_name
             
             if verbose:
-                print(f"Renaming directory to: {new_path}")
+                print(f"Renaming file to: {new_path}")
             
-            # Use shutil.move instead of os.rename
-            shutil.move(str(show_path), str(new_path))
-            print(f"Successfully updated directory with IMDB ID {imdb_id}")
+            os.rename(str(show_path), str(new_path))
+            print(f"Successfully updated show with IMDB ID {imdb_id}")
             
         return True
             
