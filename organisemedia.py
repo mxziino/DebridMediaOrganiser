@@ -31,10 +31,10 @@ LOG_LEVELS = {
 print_lock = None
 input_lock = None
 
-def init_locks(loop):
+def init_locks():
     global print_lock, input_lock
-    print_lock = asyncio.Lock(loop=loop)
-    input_lock = asyncio.Lock(loop=loop)
+    print_lock = asyncio.Lock()
+    input_lock = asyncio.Lock()
 
 def log_message(log_level, message):
     current_time = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -861,8 +861,7 @@ async def create_symlinks(src_dir, dest_dir, force=False, split=False):
     return symlink_created
 
 async def main():
-    loop = asyncio.get_event_loop()
-    init_locks(loop)
+    init_locks()
     
     settings = get_settings()
 
