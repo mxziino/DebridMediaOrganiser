@@ -894,26 +894,14 @@ async def main():
         src_dir = settings['src_dir']
         dest_dir = settings['dest_dir']
         
-    # if args.loop:
-    #     force = True
-    #     while True:
-    #         if await create_symlinks(src_dir, dest_dir, force, split=args.split_dirs):
-    #             log_message('[SUCCESS]', 'Attempting to update Plex Library sections')
-    #             try:
-    #                 plex_url, plex_token = await ensure_plex_config()
-    #                 await scan_plex_library_sections(dest_dir, plex_url, plex_token)
-    #             except Exception as e:
-    #                 log_message('ERROR', f"Error updating Plex Library sections: {e}")
-    #         log_message('[INFO]', "Sleeping for 2 minutes before next run...")
-    #         time.sleep(120)
-    # else:
-    #     if await create_symlinks(src_dir, dest_dir, force, split=args.split_dirs):
-    #         log_message('[SUCCESS]', 'Attempting to update Plex Library sections')
-    #         try:
-    #             plex_url, plex_token = await ensure_plex_config()
-    #             await scan_plex_library_sections(dest_dir, plex_url, plex_token)
-    #         except Exception as e:
-    #             log_message('ERROR', f"Error updating Plex Library sections: {e}")
+    if args.loop:
+        force = True
+        while True:
+            await create_symlinks(src_dir, dest_dir, force, split=args.split_dirs)
+            log_message('[INFO]', "Sleeping for 2 minutes before next run...")
+            time.sleep(120)
+    else:
+        await create_symlinks(src_dir, dest_dir, force, split=args.split_dirs)
 
 if __name__ == "__main__":
     asyncio.run(main())
