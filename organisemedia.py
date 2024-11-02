@@ -631,7 +631,11 @@ async def process_movies_in_batches(movies_cache, batch_size=5, ignored_files=No
 
 async def create_symlinks(src_dir, dest_dir, force=False, split=False):
     settings = get_settings()
-    ignore_patterns = settings.get('ignore_patterns', get_default_ignore_patterns())
+    ignore_patterns = settings.get('ignore_patterns', {
+        'ignored_folders': '',
+        'ignored_files': '',
+        'allowed_date_shows': ''
+    })
     
     os.makedirs(dest_dir, exist_ok=True)
     log_message('[DEBUG]', 'processing...')
