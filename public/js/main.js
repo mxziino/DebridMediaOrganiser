@@ -79,6 +79,44 @@ function deleteSymlink(path) {
     }
 }
 
+function moveShow(showPath, destination) {
+    fetch('/move_show', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ path: showPath, destination })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+        } else {
+            location.reload();
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function fixSymlink(showPath, imdbId) {
+    fetch('/fix_symlink', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ path: showPath, imdbId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+        } else {
+            location.reload();
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
 // Initialize status updates if a task is running
 if (taskStatus && taskStatus.running) {
     updateStatus();

@@ -205,6 +205,61 @@ app.post('/delete_symlink', async (req, res) => {
     }
 });
 
+app.post('/move_show', async (req, res) => {
+    try {
+        const { path: sourcePath, destination } = req.body;
+        const settings = await getSettings();
+        const destDir = settings.dest_dir;
+
+        console.log('Moving show:', { sourcePath, destination });
+
+        const exists = await fs.access(sourcePath).then(() => true).catch(() => false);
+        if (!exists) {
+            throw new Error('Source path does not exist');
+        }
+
+        const showName = path.basename(sourcePath);
+        const newPath = path.join(destDir, destination, showName);
+
+        await fs.mkdir(path.dirname(newPath), { recursive: true });
+
+        // Move the entire show directory
+        await fs.rename(sourcePath, newPath);
+
+        res.json({ message: 'Show moved successfully' });
+    } catch (error) {
+        console.error('Error moving show:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/fix_symlink', async (req, res) => {
+    try {
+        const { path: showPath, imdbId } = req.body;
+        const settings = await getSettings();
+        
+        if (!imdbId) {
+            throw new Error('IMDB ID is required');
+        }
+
+        // Run the Python script with the fix command
+        const cmd = `python3 organisemedia.py --fix "${showPath}" --imdb "${imdbId}"`;
+        const { stdout, stderr } = await execAsync(cmd);
+        
+        if (stderr) {
+            throw new Error(stderr);
+        }
+
+        res.json({ 
+            message: 'Symlink fixed successfully',
+            output: stdout
+        });
+    } catch (error) {
+        console.error('Error fixing symlink:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
 }); 
