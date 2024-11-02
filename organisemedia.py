@@ -172,7 +172,7 @@ def get_moviedb_id(imdbid):
     except requests.exceptions.RequestException as e:
         log_message('ERROR', f"Error: {e}")
 
-def is_anime(moviedb_id, series_name):
+async def is_anime(moviedb_id, series_name):
     settings = get_settings()
     api_key = get_api_key()
     
@@ -185,17 +185,19 @@ def is_anime(moviedb_id, series_name):
 
     if moviedb_id is None:
         # Ask user if unknown
-        response = input(f"Is '{series_name}' an anime? (y/N): ").lower()
-        # Save response to override list
-        if 'anime_override' not in settings:
-            settings['anime_override'] = {'is_anime': [], 'not_anime': []}
-        if response == 'y':
-            settings['anime_override']['is_anime'].append(series_name)
-        else:
-            settings['anime_override']['not_anime'].append(series_name)
-        with open(SETTINGS_FILE, 'w') as f:
-            json.dump(settings, f, indent=4)
-        return response == 'y'
+        async with print_lock:
+            response = await aioconsole.ainput(f"Is '{series_name}' an anime? (y/N): ")
+            response = response.lower()
+            # Save response to override list
+            if 'anime_override' not in settings:
+                settings['anime_override'] = {'is_anime': [], 'not_anime': []}
+            if response == 'y':
+                settings['anime_override']['is_anime'].append(series_name)
+            else:
+                settings['anime_override']['not_anime'].append(series_name)
+            with open(SETTINGS_FILE, 'w') as f:
+                json.dump(settings, f, indent=4)
+            return response == 'y'
 
     url = f"https://api.themoviedb.org/3/tv/{moviedb_id}/keywords"
     params = {'api_key': api_key}
@@ -211,18 +213,20 @@ def is_anime(moviedb_id, series_name):
             
             if not is_anime_series:
                 # If not determined by keywords, ask user
-                response = input(f"Is '{series_name}' an anime? (y/N): ").lower()
-                # Save response to override list
-                if 'anime_override' not in settings:
-                    settings['anime_override'] = {'is_anime': [], 'not_anime': []}
-                if response == 'y':
-                    settings['anime_override']['is_anime'].append(series_name)
-                else:
-                    settings['anime_override']['not_anime'].append(series_name)
-                with open(SETTINGS_FILE, 'w') as f:
-                    json.dump(settings, f, indent=4)
-                return response == 'y'
-            return is_anime_series
+                async with print_lock:
+                    response = await aioconsole.ainput(f"Is '{series_name}' an anime? (y/N): ")
+                    response = response.lower()
+                    # Save response to override list
+                    if 'anime_override' not in settings:
+                        settings['anime_override'] = {'is_anime': [], 'not_anime': []}
+                    if response == 'y':
+                        settings['anime_override']['is_anime'].append(series_name)
+                    else:
+                        settings['anime_override']['not_anime'].append(series_name)
+                    with open(SETTINGS_FILE, 'w') as f:
+                        json.dump(settings, f, indent=4)
+                    return response == 'y'
+                return is_anime_series
             
     except requests.exceptions.RequestException as e:
         print(f"Error fetching data: {e}")
@@ -366,7 +370,7 @@ async def get_series_info(series_name, year=None, split=False, force=False, root
         year = re.match(r'\b\d{4}\b', year).group()
         series_info = f"{selected_meta['name']} ({year}) {{imdb-{series_id}}}"
         if split:
-            shows_dir = "anime_shows" if is_anime(get_moviedb_id(series_id), selected_meta['name']) else "shows"
+            shows_dir = "anime_shows" if await is_anime(get_moviedb_id(series_id), selected_meta['name']) else "shows"
         _api_cache[cache_key] = (series_info, series_id, shows_dir)
         return series_info, series_id, shows_dir
     
@@ -401,7 +405,7 @@ async def get_series_info(series_name, year=None, split=False, force=False, root
                             series_info = f"{show_title} ({year_info}) {{imdb-{imdb_id}}}"
                             if split:
                                 log_message('[DEBUG]', f"dir before: {shows_dir}")
-                                shows_dir = "anime_shows" if is_anime(get_moviedb_id(imdb_id), show_title) else "shows"
+                                shows_dir = "anime_shows" if await is_anime(get_moviedb_id(imdb_id), show_title) else "shows"
                             _api_cache[cache_key] = (series_info, imdb_id, shows_dir)
                             return series_info, imdb_id, shows_dir
                     else:
@@ -438,7 +442,7 @@ async def get_series_info(series_name, year=None, split=False, force=False, root
     year = re.match(r'\b\d{4}\b', year).group()
     series_info = f"{selected_meta['name']} ({year}) {{imdb-{series_id}}}"
     if split:
-        shows_dir = "anime_shows" if is_anime(get_moviedb_id(series_id), selected_meta['name']) else "shows"
+        shows_dir = "anime_shows" if await is_anime(get_moviedb_id(series_id), selected_meta['name']) else "shows"
     _api_cache[cache_key] = (series_info, series_id, shows_dir)
     return series_info, series_id, shows_dir
 
