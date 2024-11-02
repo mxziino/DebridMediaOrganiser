@@ -28,9 +28,13 @@ LOG_LEVELS = {
     "[DEBUG]": {"level": 50, "color": Fore.LIGHTMAGENTA_EX}
 }
 
-print_lock = asyncio.Lock()
-input_lock = asyncio.Lock()
+print_lock = None
+input_lock = None
 
+def init_locks(loop):
+    global print_lock, input_lock
+    print_lock = asyncio.Lock(loop=loop)
+    input_lock = asyncio.Lock(loop=loop)
 
 def log_message(log_level, message):
     current_time = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -857,6 +861,9 @@ async def create_symlinks(src_dir, dest_dir, force=False, split=False):
     return symlink_created
 
 async def main():
+    loop = asyncio.get_event_loop()
+    init_locks(loop)
+    
     settings = get_settings()
 
     parser = argparse.ArgumentParser(description="Create symlinks for files from src_dir in dest_dir.")
