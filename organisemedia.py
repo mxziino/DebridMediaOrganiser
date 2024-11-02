@@ -639,6 +639,11 @@ async def process_anime(file, pattern1, pattern2, split=False, force=False):
 
 async def process_movie_task(movie_name, movie_folder_name, src_file, dest_dir, existing_symlinks, links_pkl, ignored_files):
     movie_name, ext = await process_movie(movie_name, movie_folder_name)
+    
+    # Skip if process_movie returns None (for TV shows)
+    if movie_name is None:
+        return
+        
     movie_name = movie_name.replace("/", " ")
     new_name = movie_name + ext
 
