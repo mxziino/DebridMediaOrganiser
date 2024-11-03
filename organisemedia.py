@@ -1088,11 +1088,19 @@ def organize_show(source_path, imdb_id, settings, verbose=False):
             traceback.print_exc()
         return False
 
-def fix_show_imdb(path, imdb_id, settings, verbose=False):
+def fix_show_imdb(path, imdb_id, verbose=False):
     """Fix and organize a show using its IMDB ID."""
     try:
         if verbose:
             print(f"Processing path: {path}")
+
+        # Use your existing settings function
+        settings = get_settings()
+        if verbose:
+            print("Loaded settings:", settings)
+
+        # Set up TMDB with API key from settings
+        tmdb.API_KEY = settings['api_key']
 
         # Find the actual show directory
         base_name = os.path.basename(path).split('{')[0].strip()
@@ -1117,15 +1125,6 @@ def fix_show_imdb(path, imdb_id, settings, verbose=False):
             traceback.print_exc()
         return False
 
-def load_settings():
-    """Load settings from settings.json."""
-    try:
-        with open('settings.json', 'r') as f:
-            return json.load(f)
-    except Exception as e:
-        print(f"Error loading settings: {e}")
-        sys.exit(1)
-
 def main():
     parser = argparse.ArgumentParser(description='Media organization script')
     parser.add_argument('--split-dirs', action='store_true', help='Split directories')
@@ -1137,19 +1136,10 @@ def main():
 
     args = parser.parse_args()
 
-    # Load settings
-    settings = load_settings()
-    
-    if args.verbose:
-        print("Loaded settings:", settings)
-    
-    # Set up TMDB with API key from settings
-    tmdb.API_KEY = settings['api_key']
-
     # Handle fix operation first and exit
     if args.fix and args.imdb:
         fixed_path = os.path.expanduser(args.fix)
-        success = fix_show_imdb(fixed_path, args.imdb, settings, args.verbose)
+        success = fix_show_imdb(fixed_path, args.imdb, args.verbose)
         sys.exit(0 if success else 1)
     
     # Only continue with normal operation if not fixing
