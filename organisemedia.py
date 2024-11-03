@@ -1140,8 +1140,11 @@ def main():
     # Load settings
     settings = load_settings()
     
+    if args.verbose:
+        print("Loaded settings:", settings)
+    
     # Set up TMDB with API key from settings
-    tmdb.API_KEY = settings['tmdb_api_key']
+    tmdb.API_KEY = settings['api_key']
 
     # Handle fix operation first and exit
     if args.fix and args.imdb:
