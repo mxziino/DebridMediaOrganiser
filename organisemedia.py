@@ -14,6 +14,8 @@ from scan_plex import ensure_plex_config, scan_plex_library_sections
 import sys
 from pathlib import Path
 import glob
+import tmdbsimple as tmdb
+from datetime import datetime
 init(autoreset=True)
 
 
@@ -970,16 +972,129 @@ def list_directory_contents(path, verbose=False):
     except Exception as e:
         print(f"Error listing directory: {e}")
 
-def fix_show_imdb(path, imdb_id, verbose=False):
-    """Fix the IMDB ID for a show path."""
+def get_show_info(imdb_id, verbose=False):
+    """Get show information from TMDB using IMDB ID."""
+    try:
+        # Search TMDB for the show
+        search = tmdb.Find()
+        response = search.find_by_imdb_id(imdb_id)
+        
+        if verbose:
+            print(f"TMDB Response: {response}")
+
+        # Check TV results first
+        if response.get('tv_results'):
+            show = response['tv_results'][0]
+            show_type = 'tv'
+        # Then check movie results
+        elif response.get('movie_results'):
+            show = response['movie_results'][0]
+            show_type = 'movie'
+        else:
+            raise Exception(f"No results found for IMDB ID: {imdb_id}")
+
+        # Get additional details
+        if show_type == 'tv':
+            details = tmdb.TV(show['id']).info()
+        else:
+            details = tmdb.Movies(show['id']).info()
+
+        if verbose:
+            print(f"Show details: {details}")
+
+        return {
+            'title': details.get('name', details.get('title')),
+            'year': datetime.strptime(details.get('first_air_date', details.get('release_date')), '%Y-%m-%d').year,
+            'type': show_type,
+            'genres': [genre['name'] for genre in details.get('genres', [])]
+        }
+    except Exception as e:
+        print(f"Error getting show info: {e}")
+        raise
+
+def organize_show(source_path, imdb_id, settings, verbose=False):
+    """Organize a show based on its IMDB ID."""
+    try:
+        if verbose:
+            print(f"Organizing show from {source_path} with IMDB ID {imdb_id}")
+
+        # Get show information from TMDB
+        show_info = get_show_info(imdb_id, verbose)
+        
+        if verbose:
+            print(f"Show info: {show_info}")
+
+        # Determine if it's an anime
+        is_anime = 'Animation' in show_info['genres'] and any(
+            keyword in show_info['title'].lower() 
+            for keyword in ['anime', 'japanese', 'japan']
+        )
+
+        # Create the new show name
+        new_name = f"{show_info['title']} ({show_info['year']}) {{imdb-{imdb_id}}}"
+        
+        # Determine the destination category
+        if show_info['type'] == 'movie':
+            dest_category = 'movies'
+        elif is_anime:
+            dest_category = 'anime_shows'
+        else:
+            dest_category = 'shows'
+
+        if verbose:
+            print(f"Destination category: {dest_category}")
+            print(f"New name: {new_name}")
+
+        # Get the source and destination paths
+        source_dir = Path(source_path)
+        dest_base = Path(settings['dest_dir'])
+        dest_dir = dest_base / dest_category / new_name
+
+        if verbose:
+            print(f"Source directory: {source_dir}")
+            print(f"Destination directory: {dest_dir}")
+
+        # Create destination directory if it doesn't exist
+        os.makedirs(str(dest_base / dest_category), exist_ok=True)
+
+        # Rename the source directory
+        new_source_dir = source_dir.parent / new_name
+        if source_dir != new_source_dir:
+            if verbose:
+                print(f"Renaming source directory to: {new_source_dir}")
+            os.rename(str(source_dir), str(new_source_dir))
+
+        # Create or update symlink
+        if dest_dir.exists() or dest_dir.is_symlink():
+            if verbose:
+                print("Removing existing destination symlink/directory")
+            if dest_dir.is_symlink():
+                dest_dir.unlink()
+            else:
+                import shutil
+                shutil.rmtree(str(dest_dir))
+
+        if verbose:
+            print(f"Creating symlink: {dest_dir} -> {new_source_dir}")
+        os.symlink(str(new_source_dir), str(dest_dir))
+
+        print(f"Successfully organized show to: {dest_dir}")
+        return True
+
+    except Exception as e:
+        print(f"Error organizing show: {str(e)}", file=sys.stderr)
+        if verbose:
+            import traceback
+            traceback.print_exc()
+        return False
+
+def fix_show_imdb(path, imdb_id, settings, verbose=False):
+    """Fix and organize a show using its IMDB ID."""
     try:
         if verbose:
             print(f"Processing path: {path}")
-            print(f"Absolute path: {os.path.abspath(path)}")
-            # List directory contents for debugging
-            list_directory_contents(path, verbose)
 
-        # Try to find the actual show directory using glob
+        # Find the actual show directory
         base_name = os.path.basename(path).split('{')[0].strip()
         parent_dir = os.path.dirname(path)
         glob_pattern = f"{parent_dir}/{base_name}*"
@@ -992,36 +1107,24 @@ def fix_show_imdb(path, imdb_id, verbose=False):
         if verbose:
             print(f"\nFound matching directory: {actual_path}")
 
-        # Now process the actual directory
-        show_path = Path(actual_path)
-        if not show_path.exists():
-            raise Exception(f"Path does not exist: {show_path}")
+        # Organize the show
+        return organize_show(actual_path, imdb_id, settings, verbose)
 
-        # Create new name with updated IMDB ID
-        current_name = show_path.name
-        new_name = re.sub(r'{imdb-tt\d+}', f'{{imdb-{imdb_id}}}', current_name)
-        if new_name == current_name:
-            new_name = f"{current_name} {{imdb-{imdb_id}}}"
-
-        new_path = show_path.parent / new_name
-        
-        if verbose:
-            print(f"\nRenaming:")
-            print(f"From: {show_path}")
-            print(f"To: {new_path}")
-
-        # Rename the directory
-        os.rename(str(show_path), str(new_path))
-        print(f"Successfully renamed directory to: {new_path}")
-
-        return True
-            
     except Exception as e:
         print(f"Error fixing show: {str(e)}", file=sys.stderr)
         if verbose:
             import traceback
             traceback.print_exc()
         return False
+
+def load_settings():
+    """Load settings from settings.json."""
+    try:
+        with open('settings.json', 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Error loading settings: {e}")
+        sys.exit(1)
 
 def main():
     parser = argparse.ArgumentParser(description='Media organization script')
@@ -1034,11 +1137,16 @@ def main():
 
     args = parser.parse_args()
 
+    # Load settings
+    settings = load_settings()
+    
+    # Set up TMDB with API key from settings
+    tmdb.API_KEY = settings['tmdb_api_key']
+
     # Handle fix operation first and exit
     if args.fix and args.imdb:
-        # Normalize the path (handle spaces and special characters)
         fixed_path = os.path.expanduser(args.fix)
-        success = fix_show_imdb(fixed_path, args.imdb, args.verbose)
+        success = fix_show_imdb(fixed_path, args.imdb, settings, args.verbose)
         sys.exit(0 if success else 1)
     
     # Only continue with normal operation if not fixing
