@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html class="h-full bg-gray-100">
+<head>
+    <title>Media Library Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="h-full">
+    <div class="min-h-full">
+        <main class="py-10">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                <h1 class="text-3xl font-bold leading-tight tracking-tight text-gray-900 mb-8">Media Library Manager</h1>
+
+                <!-- Control Panel -->
+                <div class="bg-white shadow sm:rounded-lg mb-8">
+                    <div class="px-4 py-5 sm:p-6">
+                        <h3 class="text-base font-semibold leading-6 text-gray-900 mb-4">Control Panel</h3>
+                        <form onsubmit="startScan(event)" class="flex gap-4 items-center">
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" class="h-4 w-4 rounded border-gray-300" id="split_dirs" name="split_dirs" value="true">
+                                <span class="text-sm text-gray-700">Split Anime</span>
+                            </label>
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" class="h-4 w-4 rounded border-gray-300" id="force" name="force" value="true">
+                                <span class="text-sm text-gray-700">Force Update</span>
+                            </label>
+                            <button type="submit" 
+                                    class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50" 
+                                    <%= taskStatus.running ? 'disabled' : '' %>>
+                                Start Scan
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Settings Info -->
+                <div class="bg-white shadow sm:rounded-lg mb-8">
+                    <div class="px-4 py-5 sm:p-6">
+                        <h3 class="text-base font-semibold leading-6 text-gray-900 mb-4">Settings</h3>
+                        <dl class="grid grid-cols-1 gap-2">
+                            <div>
+                                <dt class="font-medium text-gray-700">Source Directory:</dt>
+                                <dd class="text-gray-900"><%= settings.src_dir %></dd>
+                            </div>
+                            <div>
+                                <dt class="font-medium text-gray-700">Destination Directory:</dt>
+                                <dd class="text-gray-900"><%= settings.dest_dir %></dd>
+                            </div>
+                        </dl>
+                    </div>
+                </div>
+
+                <!-- Status Box -->
+                <div id="statusBox" class="fixed bottom-4 right-4 w-80 bg-white shadow-lg rounded-lg p-4 <%= !taskStatus.running ? 'hidden' : '' %>">
+                    <h6 class="text-sm font-medium text-gray-900 mb-2">Status</h6>
+                    <div id="statusMessages" class="text-sm text-gray-600">
+                        <% if (taskStatus.messages && taskStatus.messages.length > 0) { %>
+                            <% taskStatus.messages.forEach(message => { %>
+                                <div class="py-1"><%= message %></div>
+                            <% }); %>
+                        <% } else { %>
+                            <div class="py-1">No active tasks</div>
+                        <% } %>
+                    </div>
+                </div>
+
+                <!-- Media Library -->
+                <div class="bg-white shadow sm:rounded-lg p-4 mb-8">
+                    <!-- Unsorted Media -->
+                    <div class="mb-8">
+                        <h3 class="text-lg font-semibold mb-4">Unsorted Media</h3>
+                        <div class="grid gap-4">
+                            <% mediaLists.unsorted.forEach(function(item) { %>
+                                <div class="border rounded-lg p-4 flex justify-between items-center">
+                                    <div>
+                                        <h4 class="font-medium"><%= item.name %></h4>
+                                        <p class="text-sm text-gray-500"><%= item.path %></p>
+                                    </div>
+                                    <%- include('_mediaControls', { item }); %>
+                                </div>
+                            <% }); %>
+                        </div>
+                    </div>
+
+                    <!-- Shows -->
+                    <div class="mb-8">
+                        <h3 class="text-lg font-semibold mb-4">TV Shows</h3>
+                        <div class="grid gap-4">
+                            <% mediaLists.shows.forEach(function(item) { %>
+                                <div class="border rounded-lg p-4 flex justify-between items-center">
+                                    <div>
+                                        <h4 class="font-medium"><%= item.name %></h4>
+                                        <p class="text-sm text-gray-500"><%= item.path %></p>
+                                    </div>
+                                    <%- include('_mediaControls', { item }); %>
+                                </div>
+                            <% }); %>
+                        </div>
+                    </div>
+
+                    <!-- Anime Shows -->
+                    <div class="mb-8">
+                        <h3 class="text-lg font-semibold mb-4">Anime Shows</h3>
+                        <div class="grid gap-4">
+                            <% mediaLists.anime_shows.forEach(function(item) { %>
+                                <div class="border rounded-lg p-4 flex justify-between items-center">
+                                    <div>
+                                        <h4 class="font-medium"><%= item.name %></h4>
+                                        <p class="text-sm text-gray-500"><%= item.path %></p>
+                                    </div>
+                                    <%- include('_mediaControls', { item }); %>
+                                </div>
+                            <% }); %>
+                        </div>
+                    </div>
+
+                    <!-- Movies -->
+                    <div class="mb-8">
+                        <h3 class="text-lg font-semibold mb-4">Movies</h3>
+                        <div class="grid gap-4">
+                            <% mediaLists.movies.forEach(function(item) { %>
+                                <div class="border rounded-lg p-4 flex justify-between items-center">
+                                    <div>
+                                        <h4 class="font-medium"><%= item.name %></h4>
+                                        <p class="text-sm text-gray-500"><%= item.path %></p>
+                                    </div>
+                                    <%- include('_mediaControls', { item }); %>
+                                </div>
+                            <% }); %>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="/js/main.js"></script>
+</body>
+</html> 

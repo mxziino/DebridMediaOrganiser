@@ -1,0 +1,41 @@
+<div class="border rounded-lg p-4 flex flex-col w-full">
+    <div class="flex justify-between items-start mb-2">
+        <div>
+            <h4 class="font-medium"><%= item.name %></h4>
+            <p class="text-sm text-gray-500"><%= item.path %></p>
+            <% if (item.isSymlink && item.originalPath) { %>
+                <p class="text-sm text-indigo-600">
+                    Original Path: <%= item.originalPath %>
+                </p>
+            <% } %>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="moveShow('<%= item.path %>', 'anime_shows')"
+                    class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
+                Move to Anime
+            </button>
+            <button onclick="moveShow('<%= item.path %>', 'shows')"
+                    class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
+                Move to Shows
+            </button>
+            <button onclick="moveShow('<%= item.path %>', 'movies')"
+                    class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500">
+                Move to Movies
+            </button>
+        </div>
+    </div>
+    <div class="flex gap-2 mt-2">
+        <div class="relative flex-grow">
+            <input type="text" 
+                   id="imdbId_<%= item.name.replace(/[^a-zA-Z0-9]/g, '_') %>" 
+                   placeholder="tt1234567"
+                   pattern="tt\d{7,8}"
+                   title="Enter IMDB ID (format: tt1234567)"
+                   class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+        </div>
+        <button onclick="fixSymlink('<%= item.path %>', document.getElementById('imdbId_<%= item.name.replace(/[^a-zA-Z0-9]/g, '_') %>').value)"
+                class="rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500 whitespace-nowrap">
+            Fix Symlink
+        </button>
+    </div>
+</div> 

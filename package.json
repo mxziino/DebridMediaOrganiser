@@ -1,0 +1,20 @@
+{
+  "name": "debridmediaorganiser",
+  "version": "1.0.0",
+  "description": "A Python script designed to organize unorganized media torrents (movies and shows) by creating symbolic links in a structured format. The script utilizes the cinemeta API to fetch the proper TV and movie details then creates symlinks based on this information. It also utilizes The Movie Database API to check which shows are anime so they can be moved to a seperate folder if the user chooses to do so.\r Originally, this script was designed to work with a show folder in a zurg/rclone_rd mount but it can now work with a folder that has a mix of both movies and shows as it will sort everything accordingly",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@shadcn/ui": "^0.0.4",
+    "@tailwindcss/forms": "^0.5.9",
+    "ejs": "^3.1.10",
+    "express": "^4.21.1",
+    "tailwindcss": "^3.4.14"
+  }
+}
