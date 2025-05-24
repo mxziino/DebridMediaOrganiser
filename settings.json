@@ -1,0 +1,11 @@
+{
+    "api_key": null,
+    "src_dir": "/mnt/zurg/__all__",
+    "dest_dir": "/mnt/realdebrid",
+    "ignored_folder": "/mnt/zurg/newstuff",
+    "ignore_patterns": {
+        "ignored_folders": "",
+        "ignored_files": "",
+        "allowed_date_shows": ""
+    }
+}
